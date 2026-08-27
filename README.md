@@ -43,6 +43,95 @@ Amazon Bedrock AgentCore의 핵심 기능(Runtime, Memory, Gateway, Identity, Co
 - **Strands Agents + MCP** — `MCPClient`로 도구를 로드하고, `Agent(tools=[...])` 패턴으로 LLM에게 다중 도구를 오케스트레이션 위임
 - **End-to-End 웹 통합** — FastAPI + SSE 스트리밍으로 에이전트 응답을 실시간 렌더링하는 풀스택 구현
 
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Browser (web/static/index.html)                                    │
+│    - 채팅 UI, 마크다운 렌더링, 세션 관리                              │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ POST /api/chat
+                       ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  Web Backend (web/app.py)                        [TODO 9~11, 14]    │
+│    - FastAPI 서버                                                    │
+│    - boto3 invoke_agent_runtime() 호출                               │
+│    - SSE 스트리밍 응답 처리                                           │
+└──────────────────────┬──────────────────────────────────────────────┘
+                       │ invoke_agent_runtime API
+                       ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  AgentCore Runtime (agent/invoke.py)             [TODO 1~5]         │
+│                                                                     │
+│  ┌─── Memory ────────────────────────────────────────────────────┐  │
+│  │  list_events() → 이전 대화 조회            [TODO 2]            │  │
+│  │  create_event() → 현재 대화 저장           [TODO 3]            │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+│                                                                     │
+│  ┌─── Agent (Strands + Claude Sonnet) ───────────────────────────┐  │
+│  │                                                               │  │
+│  │  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────┐  │  │
+│  │  │ Code Interpreter│  │ AWS Pricing MCP  │  │ Gateway MCP │  │  │
+│  │  │ [TODO 6, 15]    │  │ [TODO 7]         │  │ [TODO 5]    │  │  │
+│  │  └────────┬────────┘  └────────┬─────────┘  └──────┬──────┘  │  │
+│  │           │                    │                    │         │  │
+│  └───────────┼────────────────────┼────────────────────┼─────────┘  │
+│              ▼                    ▼                    ▼             │
+│  ┌────────────────┐  ┌─────────────────┐  ┌────────────────────┐   │
+│  │ AgentCore      │  │ AWS Pricing API │  │ AgentCore Gateway  │   │
+│  │ Code Interpreter│  │ (us-east-1)    │  │  → Lambda → SES   │   │
+│  └────────────────┘  └─────────────────┘  └────────────────────┘   │
+│                                                                     │
+│  ┌─── Identity ──────────────────────────────────────────────────┐  │
+│  │  Cognito OAuth M2M → Bearer Token → Gateway 인증 [TODO 4]    │  │
+│  └───────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## 빈칸 목록 (총 17개 TODO)
+
+### 파일 1: `agent/invoke.py` — Runtime 엔트리포인트
+
+| TODO | 난이도 | 설명 | 관련 서비스 |
+|------|--------|------|-------------|
+| **TODO 1** | ★★☆ | Runtime 엔트리포인트 데코레이터 | AgentCore Runtime |
+| **TODO 2** | ★★★ | Memory에서 이전 대화 조회 API + max_results 값 | AgentCore Memory |
+| **TODO 3** | ★★★ | Memory에 대화 저장 API + 메시지 역할(role) 지정 | AgentCore Memory |
+| **TODO 4** | ★★☆ | OAuth2 client_credentials 플로우의 grant_type | AgentCore Identity |
+| **TODO 5** | ★★★ | Gateway MCP 연결 시 URL과 인증 헤더 | AgentCore Gateway |
+
+### 파일 2: `agent/cost_estimator_agent/cost_estimator_agent.py` — 에이전트 핵심 로직
+
+| TODO | 난이도 | 설명 | 관련 서비스 |
+|------|--------|------|-------------|
+| **TODO 6** | ★★☆ | Code Interpreter invoke 액션명 + 언어 지정 | Code Interpreter |
+| **TODO 7** | ★★☆ | AWS Pricing MCP Server 패키지명 | MCP (Pricing) |
+| **TODO 8** | ★☆☆ | Strands Agent 생성 시 도구 목록 파라미터 | Strands Agents |
+| **TODO 15** | ★☆☆ | Code Interpreter 세션 시작 메서드 | Code Interpreter |
+
+### 파일 3: `web/app.py` — FastAPI 백엔드
+
+| TODO | 난이도 | 설명 | 관련 서비스 |
+|------|--------|------|-------------|
+| **TODO 9** | ★★★ | 에이전트 런타임 호출 메서드명 | AgentCore Runtime |
+| **TODO 10** | ★★☆ | 에이전트 ARN 파라미터명 | AgentCore Runtime |
+| **TODO 11** | ★★★ | 세션 ID 파라미터명 (최소 33자 제약) | AgentCore Runtime |
+| **TODO 14** | ★★☆ | AgentCore 데이터 플레인 boto3 서비스명 + read_timeout 값 | AgentCore Runtime |
+
+### 파일 4: `identity/setup_identity.py` — Identity 설정
+
+| TODO | 난이도 | 설명 | 관련 서비스 |
+|------|--------|------|-------------|
+| **TODO 12** | ★★★ | OAuth2 credential provider 생성 API + vendor 값 | AgentCore Identity |
+| **TODO 13** | ★★☆ | AgentCore 제어 플레인 boto3 서비스명 | AgentCore Identity |
+
+### 파일 5: `gateway/setup_outbound_gateway.py` — Gateway 설정
+
+| TODO | 난이도 | 설명 | 관련 서비스 |
+|------|--------|------|-------------|
+| **TODO 16** | ★★★ | Gateway Target 설정의 Lambda 키 이름 | AgentCore Gateway |
+| **TODO 17** | ★★☆ | credentialProviderType 값 (IAM 역할 방식) | AgentCore Gateway |
+
 ## 워크샵 실습 목차
 
 ### Step 1: Identity 설정 (`identity/setup_identity.py`)
@@ -191,95 +280,6 @@ http://127.0.0.1:8080 에 접속하여 순서대로 테스트합니다.
 | Step 5: 웹 백엔드 | 20분 | TODO 4개 |
 | Step 6: 동작 확인 및 테스트 | 10분 | 3가지 시나리오 검증 |
 | **합계** | **약 2시간 ~ 2시간 30분** | |
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  Browser (web/static/index.html)                                    │
-│    - 채팅 UI, 마크다운 렌더링, 세션 관리                              │
-└──────────────────────┬──────────────────────────────────────────────┘
-                       │ POST /api/chat
-                       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  Web Backend (web/app.py)                        [TODO 9~11, 14]    │
-│    - FastAPI 서버                                                    │
-│    - boto3 invoke_agent_runtime() 호출                               │
-│    - SSE 스트리밍 응답 처리                                           │
-└──────────────────────┬──────────────────────────────────────────────┘
-                       │ invoke_agent_runtime API
-                       ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│  AgentCore Runtime (agent/invoke.py)             [TODO 1~5]         │
-│                                                                     │
-│  ┌─── Memory ────────────────────────────────────────────────────┐  │
-│  │  list_events() → 이전 대화 조회            [TODO 2]            │  │
-│  │  create_event() → 현재 대화 저장           [TODO 3]            │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                     │
-│  ┌─── Agent (Strands + Claude Sonnet) ───────────────────────────┐  │
-│  │                                                               │  │
-│  │  ┌─────────────────┐  ┌──────────────────┐  ┌─────────────┐  │  │
-│  │  │ Code Interpreter│  │ AWS Pricing MCP  │  │ Gateway MCP │  │  │
-│  │  │ [TODO 6, 15]    │  │ [TODO 7]         │  │ [TODO 5]    │  │  │
-│  │  └────────┬────────┘  └────────┬─────────┘  └──────┬──────┘  │  │
-│  │           │                    │                    │         │  │
-│  └───────────┼────────────────────┼────────────────────┼─────────┘  │
-│              ▼                    ▼                    ▼             │
-│  ┌────────────────┐  ┌─────────────────┐  ┌────────────────────┐   │
-│  │ AgentCore      │  │ AWS Pricing API │  │ AgentCore Gateway  │   │
-│  │ Code Interpreter│  │ (us-east-1)    │  │  → Lambda → SES   │   │
-│  └────────────────┘  └─────────────────┘  └────────────────────┘   │
-│                                                                     │
-│  ┌─── Identity ──────────────────────────────────────────────────┐  │
-│  │  Cognito OAuth M2M → Bearer Token → Gateway 인증 [TODO 4]    │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-## 빈칸 목록 (총 17개 TODO)
-
-### 파일 1: `agent/invoke.py` — Runtime 엔트리포인트
-
-| TODO | 난이도 | 설명 | 관련 서비스 |
-|------|--------|------|-------------|
-| **TODO 1** | ★★☆ | Runtime 엔트리포인트 데코레이터 | AgentCore Runtime |
-| **TODO 2** | ★★★ | Memory에서 이전 대화 조회 API + max_results 값 | AgentCore Memory |
-| **TODO 3** | ★★★ | Memory에 대화 저장 API + 메시지 역할(role) 지정 | AgentCore Memory |
-| **TODO 4** | ★★☆ | OAuth2 client_credentials 플로우의 grant_type | AgentCore Identity |
-| **TODO 5** | ★★★ | Gateway MCP 연결 시 URL과 인증 헤더 | AgentCore Gateway |
-
-### 파일 2: `agent/cost_estimator_agent/cost_estimator_agent.py` — 에이전트 핵심 로직
-
-| TODO | 난이도 | 설명 | 관련 서비스 |
-|------|--------|------|-------------|
-| **TODO 6** | ★★☆ | Code Interpreter invoke 액션명 + 언어 지정 | Code Interpreter |
-| **TODO 7** | ★★☆ | AWS Pricing MCP Server 패키지명 | MCP (Pricing) |
-| **TODO 8** | ★☆☆ | Strands Agent 생성 시 도구 목록 파라미터 | Strands Agents |
-| **TODO 15** | ★☆☆ | Code Interpreter 세션 시작 메서드 | Code Interpreter |
-
-### 파일 3: `web/app.py` — FastAPI 백엔드
-
-| TODO | 난이도 | 설명 | 관련 서비스 |
-|------|--------|------|-------------|
-| **TODO 9** | ★★★ | 에이전트 런타임 호출 메서드명 | AgentCore Runtime |
-| **TODO 10** | ★★☆ | 에이전트 ARN 파라미터명 | AgentCore Runtime |
-| **TODO 11** | ★★★ | 세션 ID 파라미터명 (최소 33자 제약) | AgentCore Runtime |
-| **TODO 14** | ★★☆ | AgentCore 데이터 플레인 boto3 서비스명 + read_timeout 값 | AgentCore Runtime |
-
-### 파일 4: `identity/setup_identity.py` — Identity 설정
-
-| TODO | 난이도 | 설명 | 관련 서비스 |
-|------|--------|------|-------------|
-| **TODO 12** | ★★★ | OAuth2 credential provider 생성 API + vendor 값 | AgentCore Identity |
-| **TODO 13** | ★★☆ | AgentCore 제어 플레인 boto3 서비스명 | AgentCore Identity |
-
-### 파일 5: `gateway/setup_outbound_gateway.py` — Gateway 설정
-
-| TODO | 난이도 | 설명 | 관련 서비스 |
-|------|--------|------|-------------|
-| **TODO 16** | ★★★ | Gateway Target 설정의 Lambda 키 이름 | AgentCore Gateway |
-| **TODO 17** | ★★☆ | credentialProviderType 값 (IAM 역할 방식) | AgentCore Gateway |
 
 ## 빈칸 규칙
 
