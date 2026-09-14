@@ -149,15 +149,10 @@ cd Workshop-AgentCore-Webapp
 # 3. Python 가상환경 생성 및 의존성 설치 (uv 사용)
 uv sync
 
-# 4. AWS 자격증명 설정 (워크샵에서 제공된 임시 자격증명 등)
-export AWS_ACCESS_KEY_ID="<your-access-key>"
-export AWS_SECRET_ACCESS_KEY="<your-secret-key>"
-export AWS_SESSION_TOKEN="<your-session-token>"   # 임시 자격증명인 경우
-
-# 5. 자격증명이 정상인지 확인
+# 4. 자격증명이 정상인지 확인
 aws sts get-caller-identity
 
-# 6. AWS SAM CLI 설치 확인 (Step 3의 Gateway Lambda 배포에 필요)
+# 5. AWS SAM CLI 설치 확인 (Step 3의 Gateway Lambda 배포에 필요)
 sam --version
 ```
 
