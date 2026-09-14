@@ -55,7 +55,7 @@ Please analyze this architecture and provide an AWS cost estimate:
 """
 
 # Model configuration
-DEFAULT_MODEL = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
+DEFAULT_MODEL = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 # AWS regions
 DEFAULT_PROFILE = "default"
