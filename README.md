@@ -134,6 +134,36 @@ Amazon Bedrock AgentCore의 핵심 기능(Runtime, Memory, Gateway, Identity, Co
 
 ## 워크샵 실습 목차
 
+### Step 0: 환경 준비
+
+저장소를 클론하고 작업 폴더로 이동한 뒤, 의존성과 AWS 자격증명을 설정합니다.
+이후의 모든 명령은 이 저장소 루트를 기준으로 진행합니다.
+
+```bash
+# 1. 저장소 클론
+git clone https://github.com/k2hdevil/Workshop-AgentCore-Webapp.git
+
+# 2. 작업 폴더로 이동 (이후 모든 Step은 이 폴더 기준)
+cd Workshop-AgentCore-Webapp
+
+# 3. Python 가상환경 생성 및 의존성 설치 (uv 사용)
+uv sync
+
+# 4. AWS 자격증명 설정 (워크샵에서 제공된 임시 자격증명 등)
+export AWS_ACCESS_KEY_ID="<your-access-key>"
+export AWS_SECRET_ACCESS_KEY="<your-secret-key>"
+export AWS_SESSION_TOKEN="<your-session-token>"   # 임시 자격증명인 경우
+
+# 5. 자격증명이 정상인지 확인
+aws sts get-caller-identity
+```
+
+**학습 포인트:**
+- 각 Step의 스크립트는 실행 폴더(상대경로)에 의존하므로, 항상 안내된 폴더에서 실행합니다.
+- `solutions/` 폴더는 정답 코드입니다. 먼저 스스로 빈칸을 채운 뒤 참고하세요.
+
+---
+
 ### Step 1: Identity 설정 (`identity/setup_identity.py`)
 
 Cognito User Pool과 AgentCore Identity Provider를 생성합니다.
@@ -285,7 +315,7 @@ http://127.0.0.1:8080 에 접속하여 순서대로 테스트합니다.
 
 | 단계 | 예상 소요 시간 | 비고 |
 |------|---------------|------|
-| 환경 설정 (Python, uv, AWS CLI) | 10분 | 사전 준비 완료 시 생략 가능 |
+| Step 0: 환경 준비 (clone, uv sync, 자격증명) | 10분 | 사전 준비 완료 시 단축 가능 |
 | Step 1: Identity 설정 | 15분 | TODO 2개 |
 | Step 2: 에이전트 핵심 로직 | 25분 | TODO 4개 |
 | Step 3: Gateway 설정 | 15분 | TODO 2개 + Lambda 배포 대기 |
