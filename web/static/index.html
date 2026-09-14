@@ -491,6 +491,14 @@
             return text.replace(/\n/g, '<br>');
         }
 
+        // API base URL 계산
+        // - CloudFront 등 프록시 경로(예: /ports/8081/) 뒤에서 서빙될 수 있으므로,
+        //   현재 문서 경로를 기준으로 API 경로를 만든다. 끝 슬래시 유무와 무관하게 동작.
+        // - 예) pathname="/ports/8081/" → API_BASE="/ports/8081"
+        //       pathname="/ports/8081"  → API_BASE="/ports/8081"
+        //       pathname="/"            → API_BASE=""
+        const API_BASE = window.location.pathname.replace(/\/(index\.html)?$/, '');
+
         // Session management with localStorage persistence (for AgentCore Memory)
         let sessionId = localStorage.getItem('agentcore_session_id');
         if (!sessionId) {
@@ -521,7 +529,7 @@
 
         async function checkHealth() {
             try {
-                const res = await fetch('/api/health');
+                const res = await fetch(`${API_BASE}/api/health`);
                 const data = await res.json();
                 if (data.status === 'healthy') {
                     statusBadge.textContent = 'Connected';
@@ -655,7 +663,7 @@
             addTypingIndicator();
 
             try {
-                const res = await fetch('/api/chat', {
+                const res = await fetch(`${API_BASE}/api/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
