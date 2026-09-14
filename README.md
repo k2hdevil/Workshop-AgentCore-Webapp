@@ -227,6 +227,19 @@ uv run agentcore deploy --env AWS_REGION=us-west-2
 >   --env MEMORY_ID=<your-memory-id> \
 >   --env GATEWAY_URL=<your-gateway-mcp-url>
 > ```
+>
+> `GATEWAY_URL`을 생략하면 `agent/invoke.py`가 Step 3에서 생성된
+> `gateway/outbound_gateway.json`의 URL을 자동으로 읽어 사용합니다.
+
+**(3) Pricing API 권한 부여 — `setup_runtime_permissions.py`**
+
+에이전트가 실시간 가격을 조회하려면 Runtime 실행 역할에 AWS Pricing API 권한이 필요합니다.
+이 권한이 없으면 `AccessDeniedException`이 발생하고, 견적이 실제 가격 대신 추정치로 대체됩니다.
+배포로 실행 역할이 만들어진 뒤 아래를 한 번 실행하세요. (IAM 변경은 실행 중인 런타임에 즉시 반영)
+
+```bash
+uv run python setup_runtime_permissions.py
+```
 
 **관련 TODO:** TODO 1, TODO 2, TODO 3, TODO 4, TODO 5
 
@@ -302,10 +315,11 @@ http://127.0.0.1:8080 에 접속하여 순서대로 테스트합니다.
 .
 ├── agent/                              # AgentCore Runtime에 배포되는 코드
 │   ├── invoke.py                       # [TODO 1~5] 엔트리포인트
+│   ├── setup_runtime_permissions.py    # 실행 역할에 Pricing API 권한 부여
 │   ├── requirements.txt                # 런타임 의존성
 │   ├── inbound_authorizer.json         # Cognito/Identity 설정 (자동 생성)
 │   └── cost_estimator_agent/
-│       ├── config.py                   # 시스템 프롬프트, 모델 설정
+│       ├── config.py                   # 시스템 프롬프트, 모델 설정(Claude 3.7 Sonnet)
 │       └── cost_estimator_agent.py     # [TODO 6~8, 15] 에이전트 핵심 로직
 ├── web/                                # 웹 UI
 │   ├── app.py                          # [TODO 9~11, 14] FastAPI 백엔드
@@ -377,8 +391,10 @@ http://127.0.0.1:8080 에 접속하여 순서대로 테스트합니다.
 
 - **증상**: 채팅 시도 시 Gateway MCP 연결이 즉시 종료됨
 - **원인**: `invoke.py`의 `GATEWAY_URL`이 실제 Gateway와 다른(삭제된) URL을 가리킴.
-  Gateway를 재생성하면 URL이 바뀌는데 코드의 기본값이 갱신되지 않은 경우입니다.
-- **해결**: 배포 시 실제 Gateway URL을 환경변수로 주입합니다.
+  Gateway를 재생성하면 URL이 바뀌기 때문입니다.
+- **해결**: `agent/invoke.py`는 `GATEWAY_URL` 환경변수가 없으면 Step 3에서 생성된
+  `gateway/outbound_gateway.json`의 URL을 자동으로 읽습니다. 따라서 Step 3를 먼저 완료하면
+  대개 자동으로 맞춰집니다. 명시적으로 지정하려면 배포 시 환경변수로 주입하세요.
 
   ```bash
   uv run agentcore deploy \
@@ -410,6 +426,9 @@ http://127.0.0.1:8080 에 접속하여 순서대로 테스트합니다.
 
   > 실행 역할 이름은 런타임 로그의 `assumed-role/AmazonBedrockAgentCoreSDKRuntime-...` 또는
   > `.bedrock_agentcore.yaml`의 `execution_role`에서 확인할 수 있습니다.
+
+  > **편의 스크립트:** `agent/setup_runtime_permissions.py`가 `.bedrock_agentcore.yaml`에서
+  > 실행 역할을 자동으로 찾아 위 권한을 부여합니다. `cd agent && uv run python setup_runtime_permissions.py`
 
 ### 7. 메모리 — 이전 대화 맥락을 기억하지 못함
 
