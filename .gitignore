@@ -48,3 +48,6 @@ uv.lock
 
 # Kiro IDE 설정 (개발 도구 전용)
 .kiro/
+
+# 정답 코드 - 원격에 공개하지 않음 (로컬 전용)
+solutions/
