@@ -87,8 +87,15 @@ def setup_gateway(provider_name: str = PROVIDER_NAME, force: bool = False) -> di
             
         gateway_id = gateway["gatewayId"]
         gateway_url = gateway["gatewayUrl"]
+        gateway_role_arn = gateway["roleArn"]
 
         logger.info("Gateway is created!")
+
+        # Gateway 실행 역할(execution role)에 Lambda 호출 권한 부여
+        # - role_arn=None으로 SDK가 자동 생성한 역할에는 특정 Lambda 호출 권한이
+        #   없으므로, CreateGatewayTarget이 ValidationException으로 거부됩니다.
+        # - 여기서 lambda:InvokeFunction 권한을 인라인 정책으로 추가합니다.
+        grant_lambda_invoke_permission(gateway_role_arn, config["lambda_arn"], region)
 
         # Wait for IAM role propagation — the SDK auto-creates
         # AgentCoreGatewayExecutionRole when role_arn=None, and IAM roles
@@ -170,17 +177,59 @@ def setup_gateway(provider_name: str = PROVIDER_NAME, force: bool = False) -> di
     return config
 
 
+def grant_lambda_invoke_permission(role_arn: str, lambda_arn: str, region: str):
+    """Gateway 실행 역할에 특정 Lambda 함수 호출 권한을 인라인 정책으로 추가.
+
+    Gateway가 role_arn=None으로 생성되면 SDK가 실행 역할을 자동 생성하지만
+    특정 Lambda를 호출할 lambda:InvokeFunction 권한은 포함되지 않는다.
+    이 함수가 없으면 CreateGatewayTarget이 ValidationException으로 실패한다.
+
+    Args:
+        role_arn: Gateway 실행 역할 ARN (예: .../role/AgentCoreGatewayExecutionRole)
+        lambda_arn: 호출을 허용할 Lambda 함수 ARN
+        region: AWS 리전
+    """
+    # ARN에서 역할 이름 추출 (arn:aws:iam::<acct>:role/<name>)
+    role_name = role_arn.split("/")[-1]
+    iam_client = boto3.client("iam", region_name=region)
+
+    policy_document = {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Action": "lambda:InvokeFunction",
+                "Resource": lambda_arn,
+            }
+        ],
+    }
+
+    logger.info(f"Granting lambda:InvokeFunction to role '{role_name}'...")
+    iam_client.put_role_policy(
+        RoleName=role_name,
+        PolicyName="AllowInvokeGatewayLambdaTarget",
+        PolicyDocument=json.dumps(policy_document),
+    )
+    logger.info("✅ Lambda invoke permission granted to Gateway execution role")
+
+
 def delete_gateway(client, config):
-    """Clean up existing Gateway resources"""
-    # Delete target first
-    if 'target_id' in config and 'id' in config:
-        client.delete_mcp_gateway_target(config['id'], config['target_id'])
-        logger.info("Deleted Gateway target")
-    
-    # Delete Gateway
+    """Clean up existing Gateway resources.
+
+    GatewayClient.delete_gateway는 skip_resource_in_use=True를 주면
+    연결된 target을 먼저 모두 삭제한 뒤 Gateway를 삭제한다.
+    (SDK 메서드명은 delete_mcp_gateway가 아니라 delete_gateway)
+    """
     if 'id' in config:
-        client.delete_mcp_gateway(config['id'])
-        logger.info("Deleted Gateway")
+        result = client.delete_gateway(
+            gateway_identifier=config['id'],
+            skip_resource_in_use=True,
+        )
+        if result.get("status") == "success":
+            logger.info("Deleted Gateway: %s", config['id'])
+        else:
+            # 이미 삭제되었거나 존재하지 않아도 계속 진행 (best-effort)
+            logger.warning("Gateway delete returned: %s", result.get("message"))
 
 
 def load_config():

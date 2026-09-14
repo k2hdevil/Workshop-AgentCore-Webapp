@@ -72,10 +72,32 @@ else:
 ACTOR_ID = "webui_user"
 
 # Gateway 설정 (AgentCore Gateway + Identity)
-GATEWAY_URL = os.environ.get(
-    "GATEWAY_URL",
-    "https://awscostestimatorgateway-vpcqxftagh.gateway.bedrock-agentcore.us-west-2.amazonaws.com/mcp"
-)
+# - 우선순위: (1) 환경변수 GATEWAY_URL → (2) gateway/outbound_gateway.json의 gateway.url
+# - 참가자가 Step 3에서 생성한 Gateway URL을 자동으로 사용하도록 하여,
+#   특정 Gateway를 하드코딩하지 않는다. (배포 시 --env GATEWAY_URL=... 로 덮어쓸 수도 있음)
+GATEWAY_URL = os.environ.get("GATEWAY_URL")
+if not GATEWAY_URL:
+    # gateway/outbound_gateway.json은 setup_outbound_gateway.py가 생성한다.
+    _gw_config = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "gateway", "outbound_gateway.json"
+    )
+    if os.path.exists(_gw_config):
+        try:
+            import json as _json
+            with open(_gw_config, "r") as _f:
+                _gw = _json.load(_f)
+            GATEWAY_URL = _gw.get("gateway", {}).get("url")
+        except Exception as _e:
+            logger.warning(f"Failed to load GATEWAY_URL from outbound_gateway.json: {_e}")
+
+if GATEWAY_URL:
+    logger.info(f"GATEWAY_URL configured: {GATEWAY_URL}")
+else:
+    logger.warning(
+        "GATEWAY_URL not configured - Gateway tools will be disabled. "
+        "Set the GATEWAY_URL env var, or run gateway/setup_outbound_gateway.py first."
+    )
+
 OAUTH_SCOPE = os.environ.get("OAUTH_SCOPE", "InboundAuthorizerForCostEstimatorAgent/invoke")
 
 
@@ -282,6 +304,8 @@ def invoke(payload):
     # ── [Gateway] 외부 도구 연결 (best-effort) ──
     gateway_mcp_client = None
     try:
+        if not GATEWAY_URL:
+            raise RuntimeError("GATEWAY_URL is not set")
         logger.info(f"Attempting Gateway connection: {GATEWAY_URL}")
         access_token = _get_gateway_access_token()
         if access_token:
