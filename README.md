@@ -163,14 +163,6 @@ AWS SAM CLI가 필요합니다. `sam --version`이 동작하지 않으면 아래
 
 - 설치 가이드: https://docs.aws.amazon.com/ko_kr/serverless-application-model/latest/developerguide/install-sam-cli.html
 
-```bash
-# macOS (Homebrew) 예시
-brew install aws-sam-cli
-
-# 설치 후 확인
-sam --version
-```
-
 **학습 포인트:**
 - 각 Step의 스크립트는 실행 폴더(상대경로)에 의존하므로, 항상 안내된 폴더에서 실행합니다.
 - `solutions/` 폴더는 정답 코드입니다. 먼저 스스로 빈칸을 채운 뒤 참고하세요.
