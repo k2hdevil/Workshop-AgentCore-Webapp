@@ -156,6 +156,24 @@ export AWS_SESSION_TOKEN="<your-session-token>"   # 임시 자격증명인 경�
 
 # 5. 자격증명이 정상인지 확인
 aws sts get-caller-identity
+
+# 6. AWS SAM CLI 설치 확인 (Step 3의 Gateway Lambda 배포에 필요)
+sam --version
+```
+
+**AWS SAM CLI 설치**
+
+Step 3에서 Gateway용 Lambda 함수를 `deploy.sh`(`sam build` / `sam deploy`)로 배포하므로
+AWS SAM CLI가 필요합니다. `sam --version`이 동작하지 않으면 아래 공식 가이드를 참고하여 설치하세요.
+
+- 설치 가이드: https://docs.aws.amazon.com/ko_kr/serverless-application-model/latest/developerguide/install-sam-cli.html
+
+```bash
+# macOS (Homebrew) 예시
+brew install aws-sam-cli
+
+# 설치 후 확인
+sam --version
 ```
 
 **학습 포인트:**
